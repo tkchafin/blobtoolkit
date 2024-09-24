@@ -32,7 +32,7 @@ process GENERATE_CONFIG {
         --lineage_tax_ids $lineage_tax_ids \\
         $busco_param \\
         $accession_params \\
-        --blastn $blastn \\
+        --blastn \$(realpath $blastn) \\
         --yml_out ${prefix}.yaml \\
         --csv_out ${prefix}.csv
 
