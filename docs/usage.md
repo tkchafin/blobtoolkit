@@ -76,7 +76,7 @@ mkdir -p $TAXDUMP
 cd $TAXDUMP
 ```
 
-Retrieve and decompress the NCBI taxdump:
+The NCBI taxdump database may be passed to the pipeline as `.tar.gz`, or decompressed:
 
 ```bash
 curl -L ftp://ftp.ncbi.nih.gov/pub/taxonomy/new_taxdump/new_taxdump.tar.gz | tar xzf -
@@ -93,7 +93,9 @@ mkdir -p $NT
 cd $NT
 ```
 
-Retrieve the NCBI blast nt database (version 5) files and tar gunzip them. We are using the `&&` syntax to ensure that each command completes without error before the next one is run:
+Retrieve the NCBI blast nt database (version 5) files and pass this directly (as `.tar.gz`) as input.
+
+You may alternatively decompress the contents as below. Note we are using the `&&` syntax to ensure that each command completes without error before the next one is run:
 
 ```bash
 wget "ftp://ftp.ncbi.nlm.nih.gov/blast/db/v5/nt.???.tar.gz" -P $NT/ &&
@@ -140,6 +142,8 @@ zcat */*/*.idmapping.gz | grep "NCBI_TaxID" | awk '{print $1 "\t" $1 "\t" $3 "\t
 diamond makedb -p 16 --in reference_proteomes.fasta.gz --taxonmap reference_proteomes.taxid_map --taxonnodes $TAXDUMP/nodes.dmp --taxonnames $TAXDUMP/names.dmp -d reference_proteomes.dmnd
 ```
 
+As with other database inputs, this can be passed as `.tar.gz`.
+
 ### 4. BUSCO databases
 
 Create the database directory and move into the directory:
@@ -151,7 +155,7 @@ mkdir -p $BUSCO
 cd $BUSCO
 ```
 
-Download BUSCO data and lineages to allow BUSCO to run in offline mode:
+Download BUSCO data and lineages to allow BUSCO to run in offline mode. This can be passed directly as `.tar.gz` or decompressed.
 
 ```bash
 wget -r -nH https://busco-data.ezlab.org/v5/data/

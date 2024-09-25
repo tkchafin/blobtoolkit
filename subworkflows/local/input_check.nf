@@ -2,6 +2,12 @@
 // Check input samplesheet and get aligned read channels
 //
 
+include { UNTAR as UNTAR_BLASTN   } from '../../modules/nf-core/untar/main'
+include { UNTAR as UNTAR_BLASTP   } from '../../modules/nf-core/untar/main'
+include { UNTAR as UNTAR_BLASTX   } from '../../modules/nf-core/untar/main'
+include { UNTAR as UNTAR_BUSCO_DB } from '../../modules/nf-core/untar/main'
+include { UNTAR as UNTAR_TAXDUMP  } from '../../modules/nf-core/untar/main'
+
 include { CAT_CAT                   } from '../../modules/nf-core/cat/cat/main'
 include { SAMTOOLS_FLAGSTAT         } from '../../modules/nf-core/samtools/flagstat/main'
 include { SAMPLESHEET_CHECK         } from '../../modules/local/samplesheet_check'
@@ -10,16 +16,86 @@ include { GENERATE_CONFIG           } from '../../modules/local/generate_config'
 
 workflow INPUT_CHECK {
     take:
-    samplesheet // file: /path/to/samplesheet.csv
-    fasta       // channel: [ meta, path(fasta) ]
-    taxon       // channel: val(taxon)
-    busco_lin   // channel: val([busco_lin])
-    lineage_tax_ids        // channel: /path/to/lineage_tax_ids
-    blastn       // channel: [ val(meta), path(blastn_db) ]
+    samplesheet             // file: /path/to/samplesheet.csv
+    fasta                   // channel: [ meta, path(fasta) ]
+    taxon                   // channel: val(taxon)
+    busco_lin               // channel: val([busco_lin])
+    lineage_tax_ids         // channel: /path/to/lineage_tax_ids
+    blastn                  // channel: [ path(blastn_db) ]
+    blastp                  // channel: [ path(blastp_db) ]
+    blastx                  // channel: [ path(blastx_db) ]
+    busco_db                // channel: [ path(busco_db) ]
+    taxdump                 // channel: [ path(taxdump) ]
 
     main:
     ch_versions = Channel.empty()
 
+    //
+    // SUBWORKFLOW: Decompress databases if needed
+    //
+
+    // blastn
+    if ( params.blastn.endsWith('.tar.gz') ) {
+        ch_blastn = UNTAR_BLASTN(
+            blastn.map { file -> tuple([id: file.baseName.replaceFirst('.tar', '')], file) }
+        ).untar
+        | map { meta, file -> file }
+        ch_versions = ch_versions.mix(UNTAR_BLASTN.out.versions)
+    } else {
+        ch_blastn = blastn
+    }
+    ch_blastn = ch_blastn.map { file -> tuple([id: file.baseName], file) }
+
+    // blastp
+    if ( params.blastp.endsWith('.tar.gz') ) {
+        ch_blastp = UNTAR_BLASTN(
+            blastp.map { file -> tuple([id: file.baseName.replaceFirst('.tar', '')], file) }
+        ).untar
+        | map { meta, file -> file }
+        ch_versions = ch_versions.mix(UNTAR_BLASTP.out.versions)
+    } else {
+        ch_blastp = blastp
+    }
+    ch_blastp = ch_blastp.map { file -> tuple([id: file.baseName], file) }
+
+    // blastx
+    if ( params.blastx.endsWith('.tar.gz') ) {
+        ch_blastx = UNTAR_BLASTN(
+            blastx.map { file -> tuple([id: file.baseName.replaceFirst('.tar', '')], file) }
+        ).untar
+        | map { meta, file -> file }
+        ch_versions = ch_versions.mix(UNTAR_BLASTX.out.versions)
+    } else {
+        ch_blastx = blastx
+    }
+    ch_blastx = ch_blastx.map { file -> tuple([id: file.baseName], file) }
+
+    // busco_db
+    if ( params.busco.endsWith('.tar.gz') ) {
+        ch_busco_db = UNTAR_BUSCO_DB(
+            busco_db.map { file -> tuple([id: file.baseName.replaceFirst('.tar', '')], file) }
+        ).untar
+        | map { meta, file -> file }
+        ch_versions = ch_versions.mix(UNTAR_BUSCO_DB.out.versions)
+    } else {
+        ch_busco_db = busco_db
+    }
+
+    // taxdump
+    if ( params.taxdump.endsWith('.tar.gz') ) {
+        ch_taxdump = UNTAR_TAXDUMP(
+            taxdump.map { file -> tuple([id: file.baseName.replaceFirst('.tar', '')], file) }
+        ).untar
+        | map { meta, file -> file }
+        ch_versions = ch_versions.mix(UNTAR_TAXDUMP.out.versions)
+    } else {
+        ch_taxdump = taxdump
+    }
+
+
+    //
+    // SUBWORKFLOW: Process samplesheet
+    //
     if ( params.fetchngs_samplesheet ) {
         FETCHNGSSAMPLESHEET_CHECK ( samplesheet )
             .csv
@@ -66,12 +142,12 @@ workflow INPUT_CHECK {
         taxon,
         busco_lin,
         lineage_tax_ids,
-        blastn,
+        ch_blastn,
         reads.collect(flat: false).ifEmpty([]),
-        params.blastp,
-        params.blastx,
-        params.blastn,
-        params.taxdump,
+        ch_blastp,
+        ch_blastx,
+        ch_blastn,
+        ch_taxdump,
     )
     ch_versions = ch_versions.mix(GENERATE_CONFIG.out.versions.first())
 
@@ -115,6 +191,11 @@ workflow INPUT_CHECK {
     categories_tsv = GENERATE_CONFIG.out.categories_tsv // channel: [ val(meta), path(tsv) ]
     taxon_id = ch_taxon_id                  // channel: val(taxon_id)
     busco_lineages = ch_busco_lineages      // channel: val([busco_lin])
+    ch_blastn                               // channel: [ val(meta), path(blastn_db) ]
+    ch_blastp                               // channel: [ val(meta), path(blastp_db) ]
+    ch_blastx                               // channel: [ val(meta), path(blastx_db) ]
+    ch_busco_db                             // channel: [ path(busco_db) ]
+    ch_taxdump                              // channel: [ path(taxdump) ]
     versions = ch_versions                  // channel: [ versions.yml ]
 }
 
